@@ -1,0 +1,96 @@
+name: Deploy to private EC2
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-private-ec2
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Test and deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build and health-check Docker image
+        run: |
+          set -euo pipefail
+          image="github-actions-ec2-demo:test"
+          container="github-actions-ec2-demo-test"
+
+          cleanup() {
+            docker rm -f "$container" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          docker build -t "$image" .
+          docker run -d --name "$container" -p 8080:8080 "$image"
+
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            if curl --fail --silent http://localhost:8080/health | grep -q '"status":"ok"'; then
+              echo "Runner health check passed"
+              exit 0
+            fi
+            sleep 2
+          done
+
+          docker logs "$container"
+          echo "Runner health check failed" >&2
+          exit 1
+
+      - name: Deploy through jump server
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          JUMP_HOST: ${{ vars.JUMP_HOST }}
+          PRIVATE_HOST: ${{ vars.PRIVATE_HOST }}
+          SSH_USER: ${{ vars.SSH_USER }}
+        run: |
+          set -euo pipefail
+          : "${DEPLOY_SSH_KEY:?Set the DEPLOY_SSH_KEY repository secret}"
+          : "${JUMP_HOST:?Set the JUMP_HOST repository variable}"
+          : "${PRIVATE_HOST:?Set the PRIVATE_HOST repository variable}"
+          : "${SSH_USER:?Set the SSH_USER repository variable}"
+
+          echo "$DEPLOY_SSH_KEY" > deploy_key.pem
+          chmod 400 deploy_key.pem
+
+          eval "$(ssh-agent -s)"
+          ssh-add deploy_key.pem
+
+          ssh -A \
+            -o StrictHostKeyChecking=no \
+            "$SSH_USER@$JUMP_HOST" \
+            "ssh -o StrictHostKeyChecking=no 
+            
+          $SSH_USER@$PRIVATE_HOST 'bash -s'" <<'REMOTE'  
+
+          set -euo pipefail
+
+          cd "Github-Actions-Demo"
+          git pull --ff-only origin main
+
+          container="github-actions-ec2-demo"
+          image="github-actions-ec2-demo:latest"
+
+          if docker container inspect "$container" >/dev/null 2>&1; then
+            docker stop "$container"
+            docker rm "$container"
+          fi
+
+          docker build -t "$image" .
+          docker run -d \
+            --name "$container" \
+            --restart unless-stopped \
+            -p 8080:8080 \
+            "$image"
+          REMOTE
