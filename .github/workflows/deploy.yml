@@ -71,8 +71,7 @@ jobs:
             -o StrictHostKeyChecking=no \
             "$SSH_USER@$JUMP_HOST" \
             "ssh -o StrictHostKeyChecking=no 
-            
-          $SSH_USER@$PRIVATE_HOST 'bash -s'" <<'REMOTE'  
+            $SSH_USER@$PRIVATE_HOST 'bash -s'" <<'REMOTE'  
 
           set -euo pipefail
 
