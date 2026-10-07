@@ -67,9 +67,11 @@ jobs:
           eval "$(ssh-agent -s)"
           ssh-add deploy_key.pem
 
-          ssh -o StrictHostKeyChecking=no \
-              -o ProxyJump="$SSH_USER@$JUMP_HOST" \
-              "$SSH_USER@$PRIVATE_HOST" <<'REMOTE'
+          ssh \
+            -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=/dev/null \
+            -o ProxyJump="$SSH_USER@$JUMP_HOST" \
+            "$SSH_USER@$PRIVATE_HOST" <<'REMOTE'
 
           set -euo pipefail
 
