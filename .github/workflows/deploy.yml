@@ -76,7 +76,7 @@ jobs:
 
           set -euo pipefail
 
-          cd ~/Github-Actions-Demo
+          cd ~/GitHub-Actions-Demo
 
           git pull --ff-only origin main
 
