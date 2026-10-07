@@ -67,15 +67,14 @@ jobs:
           eval "$(ssh-agent -s)"
           ssh-add deploy_key.pem
 
-          ssh -A \
-            -o StrictHostKeyChecking=no \
-            "$SSH_USER@$JUMP_HOST" \
-            "ssh -o StrictHostKeyChecking=no 
-            $SSH_USER@$PRIVATE_HOST 'bash -s'" <<'REMOTE'  
+          ssh -o StrictHostKeyChecking=no \
+              -o ProxyJump="$SSH_USER@$JUMP_HOST" \
+              "$SSH_USER@$PRIVATE_HOST" <<'REMOTE'
 
           set -euo pipefail
 
-          cd "Github-Actions-Demo"
+          cd ~/Github-Actions-Demo
+
           git pull --ff-only origin main
 
           container="github-actions-ec2-demo"
@@ -87,9 +86,13 @@ jobs:
           fi
 
           docker build -t "$image" .
+
           docker run -d \
             --name "$container" \
             --restart unless-stopped \
             -p 8080:8080 \
             "$image"
+
+          echo "Deployment completed successfully."
+
           REMOTE
