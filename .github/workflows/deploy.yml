@@ -44,7 +44,7 @@ jobs:
             # Run the newly built container
             docker run -d \
               --name github-actions-ec2-demo \
-              -p 80:80 \
+              -p 8080:8080 \
               --restart unless-stopped \
               github-actions-ec2-demo:latest
               
