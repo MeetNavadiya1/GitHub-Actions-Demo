@@ -28,11 +28,6 @@ jobs:
           image="github-actions-ec2-demo:test"
           container="github-actions-ec2-demo-test"
 
-          cleanup() {
-            docker rm -f "$container" >/dev/null 2>&1 || true
-          }
-          trap cleanup EXIT
-
           docker build -t "$image" .
           docker run -d --name "$container" -p 8080:8080 "$image"
 
